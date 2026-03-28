@@ -1,0 +1,9 @@
+spring:
+  application:
+    name: structured-concurrency-demo
+  threads:
+    virtual:
+      enabled: true   # Virtual threads carry ScopedValues; platform threads do not inherit them in fork()
+
+server:
+  port: 8080
