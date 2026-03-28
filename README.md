@@ -97,10 +97,33 @@ src/main/java/com/demo/structured/
 ├── tenant/                           # Use Case 3
 │   ├── MultiTenantService.java
 │   └── MultiTenantController.java
-└── experiment/                       # Use Case 4
-    ├── FeatureFlagService.java
-    └── FeatureFlagController.java
+├── experiment/                       # Use Case 4
+│   ├── FeatureFlagService.java
+│   └── FeatureFlagController.java
+└── threadlocal/                      # Legacy ThreadLocal / Log4j Problems
+    ├── ThreadLocalContext.java
+    ├── ThreadLocalService.java
+    └── ThreadLocalController.java
 ```
+
+## The "Before" Picture: ThreadLocal & Log4j Problems
+
+This repository also contains a `threadlocal` package demonstrating **why** Scoped Values were created. Before Structured Concurrency, applications relied on `ThreadLocal`, `InheritableThreadLocal`, and industry-standard APIs like Log4j's `ThreadContext` (MDC/NDC).
+
+These legacy approaches natively suffer from 4 fundamental flaws shown in this module:
+1. **Thread Pool Leakage (Tracing)**: If a worker thread isn't explicitly cleaned up via `finally { ThreadLocal.remove(); }`, the metadata leaks to the next incoming HTTP request on that Tomcat thread. 
+2. **Context Loss (Log4j & Tenant Loss)**: When passing work to an async thread (e.g., `CompletableFuture.supplyAsync()`), simple `ThreadLocal` variables resolve to `null`. Log4j `ThreadContext` fails **identically** and drops all metadata!
+3. **Privilege Escalation (Auth Mutation)**: `InheritableThreadLocal` blindly shares mutable object references. A child mutating an Auth role silently escalates the system for the parent!
+4. **Data Corruption (Experiment Lists)**: Shared mutable collections (like `ArrayList`) within an `InheritableThreadLocal` lead to unpredictable data corruption across concurrent tasks.
+
+Run these legacy bugs:
+```bash
+curl "http://localhost:8080/api/threadlocal/trace/leak?traceId=testing"
+curl "http://localhost:8080/api/threadlocal/log4j/loss?sessionId=sess_123"
+curl "http://localhost:8080/api/threadlocal/tenant/loss?tenantId=my-tenant"
+curl "http://localhost:8080/api/threadlocal/auth/mutation?user=admin&role=USER"
+```
+
 
 ## Key APIs Used
 
